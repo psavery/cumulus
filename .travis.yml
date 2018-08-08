@@ -46,6 +46,7 @@ script:
     - pushd _girder_build
     - cmake -DBUILD_JAVASCRIPT_TESTS:BOOL=OFF -DJAVASCRIPT_STYLE_TESTS:BOOL=OFF -DPYTHON_COVERAGE:BOOL=ON -DPYTHON_VERSION:STRING=${TRAVIS_PYTHON_VERSION} "${HOME}/build/girder"
     - ctest -R cumulus -VV
+    - ctest -R taskflow -VV
     - popd
     # Now test cumulus package
     - mkdir _cumulus_build
