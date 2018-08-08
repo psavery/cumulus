@@ -27,8 +27,8 @@ from girder.api.rest import RestException, getBodyJson, loadmodel,\
     getCurrentUser, filtermodel, Resource
 from girder.api import access
 from girder.api.docs import addModel
-from girder.api.describe import describeRoute, Description
-from girder.constants import AccessType
+from girder.api.describe import describeRoute, autoDescribeRoute, Description
+from girder.constants import AccessType, SortDir
 import sys
 from bson.objectid import ObjectId
 
@@ -43,6 +43,7 @@ class TaskFlows(Resource):
     def __init__(self):
         super(TaskFlows, self).__init__()
         self.resourceName = 'taskflows'
+        self.route('GET', (), self.listTaskFlows)
         self.route('POST', (), self.create)
         self.route('PATCH', (':id',), self.update)
         self.route('GET', (':id', 'status'), self.status)
@@ -78,6 +79,33 @@ class TaskFlows(Resource):
             }
         }
     }, 'taskflows')
+
+    @access.public
+    @filtermodel(model="taskflow", plugin="taskflow")
+    @autoDescribeRoute(
+        Description('List taskflows for a given user.')
+        .param('userId', 'The ID of the user whose taskflows will be listed. '
+               'If not passed or empty, will use the currently logged in '
+               'user. If set to "all", will list taskflows for all users.',
+               required=False)
+        .jsonParam('taskFlowClasses', 'Filter for task flow class',
+                   requireArray=True, required=False)
+        .jsonParam('statuses', 'Filter for status', requireArray=True,
+                   required=False)
+        .pagingParams(defaultSort='created', defaultSortDir=SortDir.DESCENDING)
+    )
+    def listTaskFlows(self, userId, taskFlowClasses, statuses, limit, offset, sort):
+        currentUser = self.getCurrentUser()
+        if not userId:
+            user = currentUser
+        elif userId.lower() == 'all':
+            user = 'all'
+        else:
+            user = User().load(userId, user=currentUser, level=AccessType.READ)
+
+        return list(self._model.list(
+            user=user, offset=offset, limit=limit, taskFlowClasses=taskFlowClasses,
+            statuses=statuses, sort=sort, currentUser=currentUser))
 
     @access.token
     @filtermodel(model='taskflow', plugin='taskflow')

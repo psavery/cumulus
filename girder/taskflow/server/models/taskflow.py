@@ -45,6 +45,7 @@ class Taskflow(AccessControlledModel):
     def create(self, user, taskflow):
         taskflow['status'] = TaskFlowState.CREATED
         taskflow['log'] = []
+        taskflow['userId'] = user['_id']
 
         taskflow = self.setUserAccess(
             taskflow, user, level=AccessType.ADMIN, save=True)
@@ -272,3 +273,37 @@ class Taskflow(AccessControlledModel):
         if taskflow['status'] != new_status:
             taskflow['status'] = new_status
             send_status_notification('taskflow', taskflow)
+
+    def list(self, user=None, taskFlowClasses=None, statuses=None, limit=0,
+             offset=0, sort=None, currentUser=None):
+        """
+        List a page of taskflows for a given user.
+
+        :param user: The user who owns the taskflows.
+        :type user: dict or 'all'.
+        :param taskFlowClasses: taskflow class filter.
+        :param statuses: taskflow status filter.
+        :type statuses: array of status strings, or None.
+        :param limit: The page limit.
+        :param offset: The page offset.
+        :param sort: The sort field.
+        :param currentUser: User for access filtering.
+        """
+        query = {}
+        # When user is 'all', no filtering by user, list taskflows of all users.
+        if user == 'all':
+            pass
+        # Otherwise, filter by user id
+        else:
+            query['userId'] = user['_id']
+        if taskFlowClasses is not None:
+            query['taskFlowClass'] = {'$in': taskFlowClasses}
+        if statuses is not None:
+            query['status'] = {'$in': statuses}
+
+        cursor = self.find(query, sort=sort)
+
+        for r in self.filterResultsByPermission(cursor=cursor, user=currentUser,
+                                                level=AccessType.READ,
+                                                limit=limit, offset=offset):
+            yield r
